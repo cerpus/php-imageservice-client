@@ -11,5 +11,5 @@ interface ImageServiceContract
 {
     public function store($imageFilePath): ImageDataObject;
 
-    public function get($imageId): ImageDataObject;
+    public function getHostingUrl($imageId);
 }

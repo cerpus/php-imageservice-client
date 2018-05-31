@@ -2,11 +2,13 @@
 
 namespace Cerpus\ImageServiceClient\Adapters;
 
+use Carbon\Carbon;
 use Cerpus\ImageServiceClient\Contracts\ImageServiceContract;
 use Cerpus\ImageServiceClient\DataObjects\ImageDataObject;
 use Cerpus\ImageServiceClient\Exceptions\InvalidFileException;
 use Cerpus\ImageServiceClient\Exceptions\UploadNotFinishedException;
 use GuzzleHttp\ClientInterface;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Class ImageServiceAdapter
@@ -81,15 +83,24 @@ class ImageServiceAdapter implements ImageServiceContract
         $realPath = realpath($filePath);
         $documentRoot = realpath($_SERVER['DOCUMENT_ROOT']);
 
-        if( strpos($realPath, sys_get_temp_dir()) === 0 ||
-            strpos($realPath, $documentRoot) === 0){
+        if (strpos($realPath, sys_get_temp_dir()) === 0 ||
+            strpos($realPath, $documentRoot) === 0) {
             return true;
         }
         return false;
     }
 
-    public function get($imageId): ImageDataObject
+    public function getHostingUrl($imageId)
     {
-        // TODO: Implement get() method.
+        $cacheKey = 'ImageServiceObject-' . $imageId;
+        if( Cache::has($cacheKey) !== true ){
+            $imageResponse = $this->client->request("GET", sprintf(self::HOSTING_URL, $this->containerName, $imageId));
+            $imageResponseContent = $imageResponse->getBody()->getContents();
+            $responseJson = \GuzzleHttp\json_decode($imageResponseContent);
+            $expire = Carbon::now()->addHour();
+            Cache::put($responseJson->url, $cacheKey, $expire);
+            return $responseJson->url;
+        }
+        return Cache::get($cacheKey);
     }
 }

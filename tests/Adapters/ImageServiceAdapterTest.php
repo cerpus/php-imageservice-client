@@ -9,6 +9,8 @@ use Cerpus\ImageServiceClientTests\Utils\ImageServiceTestCase;
 use Cerpus\ImageServiceClientTests\Utils\Traits\WithFaker;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Support\Facades\Cache;
+use Mockery\Mock;
 use Teapot\StatusCode;
 
 class ImageServiceAdapterTest extends ImageServiceTestCase
@@ -100,4 +102,55 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
         $this->assertEquals($storedImage, $returnedImage);
     }
+
+    /**
+     * @test
+     */
+    public function getImage_fileFound_thenSuccess()
+    {
+        $imageId = $this->faker->uuid;
+        $imageUrl = $this->faker->imageUrl();
+        $client = $this->createMock(ClientInterface::class);
+        $client
+            ->expects($this->once())
+            ->method("request")
+            ->willReturn(new Response(StatusCode::OK, [], json_encode((object)['url' => $imageUrl])));
+
+        Cache::shouldReceive('has')
+        ->once()
+        ->andReturnFalse();
+
+        Cache::shouldReceive('put')
+            ->once()
+            ->andReturnNull();
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $this->assertEquals($imageUrl, $adapter->getHostingUrl($imageId));
+    }
+
+    /**
+     * @test
+     */
+    public function getImage_fileFoundInCache_thenSuccess()
+    {
+        $imageUrl = $this->faker->imageUrl();
+        $client = $this->createMock(ClientInterface::class);
+        $client
+            ->expects($this->never())
+            ->method("request");
+
+        Cache::shouldReceive('has')
+        ->once()
+        ->andReturnTrue();
+
+        Cache::shouldReceive('get')
+            ->once()
+            ->andReturn($imageUrl);
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $this->assertEquals($imageUrl, $adapter->getHostingUrl($this->faker->uuid));
+    }
+
+
+
 }
