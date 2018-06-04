@@ -12,4 +12,8 @@ interface ImageServiceContract
     public function store($imageFilePath): ImageDataObject;
 
     public function getHostingUrl($imageId);
+
+    public function get($id): ImageDataObject;
+
+    public function delete($id): bool;
 }

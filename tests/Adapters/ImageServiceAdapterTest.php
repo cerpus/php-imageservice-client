@@ -4,6 +4,7 @@ namespace Cerpus\ImageServiceClientTests\Adapters;
 
 use Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter;
 use Cerpus\ImageServiceClient\DataObjects\ImageDataObject;
+use Cerpus\ImageServiceClient\Exceptions\FileNotFoundException;
 use Cerpus\ImageServiceClientTests\Utils\ImageServiceTestCase;
 use Cerpus\ImageServiceClientTests\Utils\Traits\WithFaker;
 use GuzzleHttp\Client;
@@ -35,15 +36,15 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         ];
         $storedImage = ImageDataObject::create($imageObjectId, 'finished', 1000);
 
-        $client
-            ->expects($this->exactly(4))
-            ->method("request")
-            ->willReturnOnConsecutiveCalls(
-                new Response(StatusCode::OK, [], json_encode($imagePayload)),
-                new Response(StatusCode::OK, [], $storedImage->toJson()),
-                new Response(StatusCode::OK, [], json_encode($imagePayload)),
-                new Response(StatusCode::OK, [], $storedImage->toJson())
-            );
+        $responses = [
+            new Response(StatusCode::OK, [], json_encode($imagePayload)),
+            new Response(StatusCode::OK, [], $storedImage->toJson()),
+            new Response(StatusCode::OK, [], json_encode($imagePayload)),
+            new Response(StatusCode::OK, [], $storedImage->toJson())
+        ];
+        $mock = new MockHandler($responses);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
 
         $testFile = $this->faker->image('/tmp', 320, 340);
 
@@ -88,13 +89,13 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         ];
         $storedImage = ImageDataObject::create($imageObjectId, 'notfinished', 1000);
 
-        $client
-            ->expects($this->exactly(2))
-            ->method("request")
-            ->willReturnOnConsecutiveCalls(
-                new Response(StatusCode::OK, [], json_encode($imagePayload)),
-                new Response(StatusCode::OK, [], $storedImage->toJson())
-            );
+        $responses = [
+            new Response(StatusCode::OK, [], json_encode($imagePayload)),
+            new Response(StatusCode::OK, [], $storedImage->toJson())
+        ];
+        $mock = new MockHandler($responses);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
 
         $testFile = $this->faker->image('/tmp', 320, 340);
 
@@ -244,4 +245,47 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $this->assertEquals($allImages->toArray(), $adapter->getHostingUrls($allImages->keys()->toArray()));
     }
 
+
+    /**
+     * @test
+     */
+    public function getImage_validFile_thenSuccess()
+    {
+        $imageId = $this->faker->uuid;
+        $imageObject = ImageDataObject::create($imageId, 'finished', $this->faker->numberBetween(10000, 20000));
+
+        $mock = new MockHandler([
+            new Response(StatusCode::OK, [], $imageObject->toJson()),
+        ]);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $imageResponseObject = $adapter->get($imageId);
+        $this->assertEquals($imageObject, $imageResponseObject);
+        $this->assertAttributeEquals($imageId, 'id', $imageResponseObject);
+    }
+
+    /**
+     * @test
+     * @expectedException Cerpus\ImageServiceClient\Exceptions\FileNotFoundException
+     */
+    public function getImage_invalidFile_thenFail()
+    {
+        $imageId = $this->faker->uuid;
+        $response = (object)[
+            'status' => StatusCode::INTERNAL_SERVER_ERROR,
+            'error' => 'Internal Server Error',
+            'path' => sprintf(ImageServiceAdapter::GET_IMAGE, $this->containerName, $imageId),
+        ];
+
+        $mock = new MockHandler([
+            new Response(StatusCode::INTERNAL_SERVER_ERROR, [], json_encode($response)),
+        ]);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $adapter->get($imageId);
+    }
 }

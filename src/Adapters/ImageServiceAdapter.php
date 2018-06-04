@@ -5,9 +5,11 @@ namespace Cerpus\ImageServiceClient\Adapters;
 use Carbon\Carbon;
 use Cerpus\ImageServiceClient\Contracts\ImageServiceContract;
 use Cerpus\ImageServiceClient\DataObjects\ImageDataObject;
+use Cerpus\ImageServiceClient\Exceptions\FileNotFoundException;
 use Cerpus\ImageServiceClient\Exceptions\InvalidFileException;
 use Cerpus\ImageServiceClient\Exceptions\UploadNotFinishedException;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Pool;
 use Illuminate\Support\Facades\Cache;
 
@@ -58,7 +60,7 @@ class ImageServiceAdapter implements ImageServiceContract
 
     private function createImageObject()
     {
-        $imageObjectResponse = $this->client->request('POST', sprintf(self::CREATE_IMAGE, $this->containerName), [
+        $imageObjectResponse = $this->client->post(sprintf(self::CREATE_IMAGE, $this->containerName), [
             'json' => new \stdClass(),
         ]);
         $responseContent = $imageObjectResponse->getBody()->getContents();
@@ -69,7 +71,7 @@ class ImageServiceAdapter implements ImageServiceContract
     private function uploadImage($filePath, $imageObjectId)
     {
         $checksum = sha1_file($filePath);
-        $imageUploadResponse = $this->client->request('POST', sprintf(self::UPLOAD_IMAGE . "?checksum=%s", $this->containerName, $imageObjectId, $checksum), [
+        $imageUploadResponse = $this->client->post(sprintf(self::UPLOAD_IMAGE . "?checksum=%s", $this->containerName, $imageObjectId, $checksum), [
             'body' => fopen($filePath, 'r')
         ]);
         $imageUploadContent = $imageUploadResponse->getBody()->getContents();
@@ -97,14 +99,19 @@ class ImageServiceAdapter implements ImageServiceContract
     {
         $cacheKey = self::CACHE_KEY . $imageId;
         if (Cache::has($cacheKey) !== true) {
-            $imageResponse = $this->client->request("GET", sprintf(self::HOSTING_URL, $this->containerName, $imageId));
+            $imageResponse = $this->client->get(sprintf(self::HOSTING_URL, $this->containerName, $imageId));
             $imageResponseContent = $imageResponse->getBody()->getContents();
             $responseJson = \GuzzleHttp\json_decode($imageResponseContent);
-            $expire = Carbon::now()->addHour();
-            Cache::put($responseJson->url, $cacheKey, $expire);
+            $this->addToCache($responseJson->url, $cacheKey);
             return $responseJson->url;
         }
         return Cache::get($cacheKey);
+    }
+
+    private function addToCache($url, $cacheKey)
+    {
+        $expire = Carbon::now()->addHour();
+        Cache::put($url, $cacheKey, $expire);
     }
 
     public function getHostingUrls(array $imageIds)
@@ -127,7 +134,6 @@ class ImageServiceAdapter implements ImageServiceContract
             return $cached->toArray();
         }
 
-        $imageObjects = $imageObjects->merge($cached);
         $notCached = $imageObjects->diffKeys($cached);
         $doRequest = function (&$images) {
             foreach ($images as $imageId => $image) {
@@ -137,20 +143,36 @@ class ImageServiceAdapter implements ImageServiceContract
                         ->then(function ($response) use ($imageId, &$images) {
                             $responseContent = \GuzzleHttp\json_decode($response->getBody()->getContents());
                             $images[$imageId] = $responseContent->url;
+                            $this->addToCache($responseContent->url, self::CACHE_KEY . $imageId);
                         });
                 };
             }
         };
 
         $startWork = $notCached->toArray();
-        $pool = new Pool($this->client, $doRequest($startWork), [
-            'concurrency' => 5,
-        ]);
+        $pool = new Pool($this->client, $doRequest($startWork));
         $promise = $pool->promise();
         $promise->wait();
 
-        $imageObjects = $imageObjects->merge($startWork);
+        $imageObjects = $imageObjects->merge($startWork)->merge($cached);
 
         return $imageObjects->toArray();
+    }
+
+    public function get($id): ImageDataObject
+    {
+        try {
+            $imageResponse = $this->client->get(sprintf(self::GET_IMAGE, $this->containerName, $id));
+            $imageResponseContent = $imageResponse->getBody()->getContents();
+            return ImageDataObject::create(\GuzzleHttp\json_decode($imageResponseContent, true));
+        } catch (ServerException $exception) {
+            throw new FileNotFoundException($exception->getMessage());
+        }
+    }
+
+    public function delete($id): bool
+    {
+        $imageResponse = $this->client->delete(sprintf(self::GET_IMAGE, $this->containerName, $id));
+        return $imageResponse->getStatusCode() === 200;
     }
 }
