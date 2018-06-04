@@ -7,7 +7,8 @@ use Cerpus\ImageServiceClient\Contracts\ImageServiceContract;
 use Cerpus\ImageServiceClient\DataObjects\ImageDataObject;
 use Cerpus\ImageServiceClient\Exceptions\InvalidFileException;
 use Cerpus\ImageServiceClient\Exceptions\UploadNotFinishedException;
-use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Client;
+use GuzzleHttp\Pool;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Cache;
  */
 class ImageServiceAdapter implements ImageServiceContract
 {
-    /** @var ClientInterface */
+    /** @var Client */
     private $client;
 
     private $containerName;
@@ -29,11 +30,13 @@ class ImageServiceAdapter implements ImageServiceContract
     const UPLOAD_IMAGE = "/v1/images/%s/%s/upload";
     const HOSTING_URL = "/v1/images/%s/%s/hosting_url";
 
+    const CACHE_KEY = 'ImageServiceObject-';
+
     /**
      * QuestionBankAdapter constructor.
-     * @param ClientInterface $client
+     * @param Client $client
      */
-    public function __construct(ClientInterface $client, $containerName)
+    public function __construct(Client $client, $containerName)
     {
         $this->client = $client;
         $this->containerName = $containerName;
@@ -92,8 +95,8 @@ class ImageServiceAdapter implements ImageServiceContract
 
     public function getHostingUrl($imageId)
     {
-        $cacheKey = 'ImageServiceObject-' . $imageId;
-        if( Cache::has($cacheKey) !== true ){
+        $cacheKey = self::CACHE_KEY . $imageId;
+        if (Cache::has($cacheKey) !== true) {
             $imageResponse = $this->client->request("GET", sprintf(self::HOSTING_URL, $this->containerName, $imageId));
             $imageResponseContent = $imageResponse->getBody()->getContents();
             $responseJson = \GuzzleHttp\json_decode($imageResponseContent);
@@ -102,5 +105,52 @@ class ImageServiceAdapter implements ImageServiceContract
             return $responseJson->url;
         }
         return Cache::get($cacheKey);
+    }
+
+    public function getHostingUrls(array $imageIds)
+    {
+        $imageObjects = collect($imageIds)
+            ->flip()
+            ->transform(function () {
+                return null;
+            });
+
+        $cached = $imageObjects
+            ->map(function ($url, $imageId) {
+                return Cache::get(self::CACHE_KEY . $imageId);
+            })
+            ->filter(function ($imageUrl) {
+                return !empty($imageUrl);
+            });
+
+        if ($cached->count() === count($imageIds)) {
+            return $cached->toArray();
+        }
+
+        $imageObjects = $imageObjects->merge($cached);
+        $notCached = $imageObjects->diffKeys($cached);
+        $doRequest = function (&$images) {
+            foreach ($images as $imageId => $image) {
+                yield function () use ($imageId, &$images) {
+                    return $this->client
+                        ->getAsync(sprintf(self::HOSTING_URL, $this->containerName, $imageId))
+                        ->then(function ($response) use ($imageId, &$images) {
+                            $responseContent = \GuzzleHttp\json_decode($response->getBody()->getContents());
+                            $images[$imageId] = $responseContent->url;
+                        });
+                };
+            }
+        };
+
+        $startWork = $notCached->toArray();
+        $pool = new Pool($this->client, $doRequest($startWork), [
+            'concurrency' => 5,
+        ]);
+        $promise = $pool->promise();
+        $promise->wait();
+
+        $imageObjects = $imageObjects->merge($startWork);
+
+        return $imageObjects->toArray();
     }
 }
