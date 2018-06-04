@@ -17,6 +17,11 @@ class ImageServiceClientServiceProvider extends ServiceProvider
 {
     protected $defer = true;
 
+    public function boot()
+    {
+        $this->publishConfig();
+    }
+
     /**
      * Register the service provider.
      *
@@ -102,5 +107,11 @@ class ImageServiceClientServiceProvider extends ServiceProvider
         if (!array_key_exists($adapter, $config['adapters']) || !is_array($config['adapters'][$adapter])) {
             throw new InvalidConfigException(sprintf("Could not find the config for the adapter '%s'", $adapter));
         }
+    }
+
+    private function publishConfig()
+    {
+        $path = ImageServiceClient::getConfigPath();
+        $this->publishes([$path => config_path(ImageServiceClient::$alias . ".php")], 'config');
     }
 }
