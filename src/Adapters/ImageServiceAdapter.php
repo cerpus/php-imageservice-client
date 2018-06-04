@@ -24,9 +24,6 @@ class ImageServiceAdapter implements ImageServiceContract
 
     private $containerName;
 
-    /** @var \Exception */
-    private $error;
-
     const GET_IMAGE = "/v1/images/%s/%s";
     const CREATE_IMAGE = "/v1/images/%s/create";
     const UPLOAD_IMAGE = "/v1/images/%s/%s/upload";
@@ -37,6 +34,7 @@ class ImageServiceAdapter implements ImageServiceContract
     /**
      * QuestionBankAdapter constructor.
      * @param Client $client
+     * @param string $containerName
      */
     public function __construct(Client $client, $containerName)
     {
@@ -44,6 +42,12 @@ class ImageServiceAdapter implements ImageServiceContract
         $this->containerName = $containerName;
     }
 
+    /**
+     * @param $imageFilePath
+     * @return ImageDataObject
+     * @throws InvalidFileException
+     * @throws UploadNotFinishedException
+     */
     public function store($imageFilePath): ImageDataObject
     {
         if ($this->isFileInPath($imageFilePath) !== true) {
