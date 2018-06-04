@@ -159,6 +159,11 @@ class ImageServiceAdapter implements ImageServiceContract
         return $imageObjects->toArray();
     }
 
+    /**
+     * @param $id
+     * @return ImageDataObject
+     * @throws FileNotFoundException
+     */
     public function get($id): ImageDataObject
     {
         try {
@@ -170,9 +175,19 @@ class ImageServiceAdapter implements ImageServiceContract
         }
     }
 
+
+    /**
+     * @param $id
+     * @return bool
+     * @throws FileNotFoundException
+     */
     public function delete($id): bool
     {
-        $imageResponse = $this->client->delete(sprintf(self::GET_IMAGE, $this->containerName, $id));
-        return $imageResponse->getStatusCode() === 200;
+        try {
+            $imageResponse = $this->client->delete(sprintf(self::GET_IMAGE, $this->containerName, $id));
+            return $imageResponse->getStatusCode() === 200;
+        } catch (ServerException $exception) {
+            throw new FileNotFoundException($exception->getMessage());
+        }
     }
 }

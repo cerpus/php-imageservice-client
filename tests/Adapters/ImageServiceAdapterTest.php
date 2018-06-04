@@ -288,4 +288,36 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $adapter->get($imageId);
     }
+
+    /**
+     * @test
+     */
+    public function deleteImage_validImage_thenSuccess()
+    {
+        $mock = new MockHandler([
+            new Response(StatusCode::OK),
+        ]);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $this->assertTrue($adapter->delete($this->faker->uuid));
+    }
+
+    /**
+     * @test
+     * @expectedException Cerpus\ImageServiceClient\Exceptions\FileNotFoundException
+     */
+    public function deleteImage_invalidImage_thenFail()
+    {
+        $mock = new MockHandler([
+            new Response(StatusCode::INTERNAL_SERVER_ERROR),
+        ]);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $adapter->delete($this->faker->uuid);
+    }
+
 }
