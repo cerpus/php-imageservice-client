@@ -68,4 +68,13 @@ trait CreateTrait
         }
         return $returnArray;
     }
+
+
+    /**
+     * @return string
+     */
+    public function toJson()
+    {
+        return json_encode($this);
+    }
 }

@@ -8,6 +8,8 @@ use Cerpus\ImageServiceClient\Traits\CreateTrait;
 /**
  * Class OauthSetup
  * @package Cerpus\ImageServiceClient\DataObjects
+ *
+ * @method static OauthSetup create($attributes = null)
  */
 class OauthSetup
 {
