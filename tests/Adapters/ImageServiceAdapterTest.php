@@ -157,6 +157,20 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
     /**
      * @test
      */
+    public function getImage_emptyImageObjectId_thenSuccess()
+    {
+        $client = $this->createMock(Client::class);
+
+        Cache::shouldReceive('has')
+            ->never();
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $this->assertNull($adapter->getHostingUrl(null));
+    }
+
+    /**
+     * @test
+     */
     public function getImages_allFilesInCache_thenSuccess()
     {
         $images = Collection::times(5, function () {

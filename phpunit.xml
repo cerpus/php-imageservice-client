@@ -10,8 +10,8 @@
          stopOnFailure="false"
          syntaxCheck="false">
     <testsuites>
-        <testsuite name="QuestionBankClient Test Suite">
-            <directory>tests/</directory>
+        <testsuite name="ImageserviceClient Test Suite">
+            <directory>./tests</directory>
         </testsuite>
     </testsuites>
     <filter>

@@ -101,15 +101,23 @@ class ImageServiceAdapter implements ImageServiceContract
 
     public function getHostingUrl($imageId)
     {
+        if (empty($imageId)) {
+            return null;
+        }
+
         $cacheKey = self::CACHE_KEY . $imageId;
         if (Cache::has($cacheKey) !== true) {
-            $imageResponse = $this->client->get(sprintf(self::HOSTING_URL, $this->containerName, $imageId));
-            $imageResponseContent = $imageResponse->getBody()->getContents();
-            $responseJson = \GuzzleHttp\json_decode($imageResponseContent);
-            $this->addToCache($responseJson->url, $cacheKey);
-            return $responseJson->url;
+            try {
+                $imageResponse = $this->client->get(sprintf(self::HOSTING_URL, $this->containerName, $imageId));
+                $imageResponseContent = $imageResponse->getBody()->getContents();
+                $responseJson = \GuzzleHttp\json_decode($imageResponseContent);
+                $this->addToCache($responseJson->url, $cacheKey);
+                return $responseJson->url;
+            } catch (ServerException $exception) {
+                return null;
+            }
         }
-        return Cache::get($cacheKey);
+        return Cache::get($cacheKey, null);
     }
 
     private function addToCache($url, $cacheKey)
