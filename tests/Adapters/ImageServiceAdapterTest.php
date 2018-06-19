@@ -4,14 +4,12 @@ namespace Cerpus\ImageServiceClientTests\Adapters;
 
 use Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter;
 use Cerpus\ImageServiceClient\DataObjects\ImageDataObject;
-use Cerpus\ImageServiceClient\Exceptions\FileNotFoundException;
 use Cerpus\ImageServiceClientTests\Utils\ImageServiceTestCase;
 use Cerpus\ImageServiceClientTests\Utils\Traits\WithFaker;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Teapot\StatusCode;
 
@@ -26,8 +24,6 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
      */
     public function storeImage_existingFile_thenSuccess()
     {
-        $client = $this->createMock(Client::class);
-
         $imageObjectId = $this->faker->uuid;
         $imagePayload = (object)[
             'id' => $imageObjectId,
@@ -50,15 +46,10 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $returnedImage = $adapter->store($testFile);
-
         $this->assertEquals($storedImage, $returnedImage);
 
-        $adapter = new ImageServiceAdapter($client, $this->containerName);
         $returnedImage = $adapter->store($this->testDirectory . DIRECTORY_SEPARATOR . "Data" . DIRECTORY_SEPARATOR . "efecabde710777a9a361bd064b07a36e.jpg");
-
         $this->assertEquals($storedImage, $returnedImage);
-
-
     }
 
     /**
@@ -70,7 +61,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $client = $this->createMock(Client::class);
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
-        $adapter->store("/random/directory");
+      $adapter->store("/random/directory/" . $this->faker->uuid);
     }
 
     /**
@@ -79,8 +70,6 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
      */
     public function storeImage_fileNoFinished_thenFail()
     {
-        $client = $this->createMock(Client::class);
-
         $imageObjectId = $this->faker->uuid;
         $imagePayload = (object)[
             'id' => $imageObjectId,
@@ -150,6 +139,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
             ->once()
             ->andReturn($imageUrl);
 
+      /** @var Client $client */
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $this->assertEquals($imageUrl, $adapter->getHostingUrl($this->faker->uuid));
     }
@@ -159,6 +149,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
      */
     public function getImage_emptyImageObjectId_thenSuccess()
     {
+      /** @var Client $client */
         $client = $this->createMock(Client::class);
 
         Cache::shouldReceive('has')
@@ -173,11 +164,13 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
      */
     public function getImages_allFilesInCache_thenSuccess()
     {
-        $images = Collection::times(5, function () {
-            return [$this->faker->unique()->uuid => $this->faker->unique()->imageUrl()];
-        })->reduce(function ($old, $new) {
-            return $old->merge($new);
-        }, collect());
+      $images = collect([
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+      ]);
 
         $client = $this->createMock(Client::class);
         $client->expects($this->never())->method('request');
@@ -186,6 +179,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
             ->times(5)
             ->andReturnValues($images->toArray());
 
+      /** @var Client $client */
         $adapter = new ImageServiceAdapter($client, $this->containerName);
 
         $this->assertEquals($images->toArray(), $adapter->getHostingUrls($images->keys()->toArray()));
@@ -196,11 +190,13 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
      */
     public function getImages_noFilesInCache_thenSuccess()
     {
-        $images = Collection::times(5, function () {
-            return [$this->faker->unique()->uuid => $this->faker->unique()->imageUrl()];
-        })->reduce(function ($old, $new) {
-            return $old->merge($new);
-        }, collect());
+      $images = collect([
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+      ]);
 
         $responses = $images
             ->map(function ($url, $id) {
@@ -226,11 +222,13 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
      */
     public function getImages_threeFilesInCache_thenSuccess()
     {
-        $images = Collection::times(4, function () {
-            return [$this->faker->unique()->uuid => $this->faker->unique()->imageUrl()];
-        })->reduce(function ($old, $new) {
-            return $old->merge($new);
-        }, collect());
+      $images = collect([
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+      ]);
+
 
         $responses = $images
             ->map(function ($url, $id) {
