@@ -4,11 +4,16 @@ namespace Cerpus\ImageServiceClientTests\Adapters;
 
 use Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter;
 use Cerpus\ImageServiceClient\DataObjects\ImageDataObject;
+use Cerpus\ImageServiceClient\DataObjects\ImageParamsObject;
+use Cerpus\ImageServiceClient\Exceptions\ImageUrlNotFoundException;
 use Cerpus\ImageServiceClientTests\Utils\ImageServiceTestCase;
 use Cerpus\ImageServiceClientTests\Utils\Traits\WithFaker;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Cache;
 use Teapot\StatusCode;
@@ -18,6 +23,24 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
     use WithFaker;
 
     private $containerName = "ImageServiceClientTestContainer";
+
+    private $testFiles = [];
+
+    protected function setUp()
+    {
+        parent::setUp();
+
+        $this->testFiles = [];
+    }
+
+    protected function tearDown()
+    {
+        parent::tearDown();
+
+        array_walk($this->testFiles, function ($file) {
+            unlink($file);
+        });
+    }
 
     /**
      * @test
@@ -43,6 +66,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $client = new Client(['handler' => $handler]);
 
         $testFile = $this->faker->image('/tmp', 320, 340);
+        $this->testFiles[] = $testFile;
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $returnedImage = $adapter->store($testFile);
@@ -61,7 +85,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $client = $this->createMock(Client::class);
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
-      $adapter->store("/random/directory/" . $this->faker->uuid);
+        $adapter->store("/random/directory/" . $this->faker->uuid);
     }
 
     /**
@@ -87,11 +111,10 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $client = new Client(['handler' => $handler]);
 
         $testFile = $this->faker->image('/tmp', 320, 340);
+        $this->testFiles[] = $testFile;
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $returnedImage = $adapter->store($testFile);
-
-        $this->assertEquals($storedImage, $returnedImage);
     }
 
     /**
@@ -139,9 +162,30 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
             ->once()
             ->andReturn($imageUrl);
 
-      /** @var Client $client */
+        /** @var Client $client */
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $this->assertEquals($imageUrl, $adapter->getHostingUrl($this->faker->uuid));
+    }
+
+    /**
+     * @test
+     * @expectedException Cerpus\ImageServiceClient\Exceptions\ImageUrlNotFoundException
+     */
+    public function getImage_errorOnServer_thenFail()
+    {
+        $mock = new MockHandler([
+            new RequestException("Could not find url", new Request("GET", 'test')),
+        ]);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
+
+        Cache::shouldReceive('has')
+            ->once()
+            ->andReturnFalse();
+
+        /** @var Client $client */
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $adapter->getHostingUrl($this->faker->uuid);
     }
 
     /**
@@ -149,7 +193,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
      */
     public function getImage_emptyImageObjectId_thenSuccess()
     {
-      /** @var Client $client */
+        /** @var Client $client */
         $client = $this->createMock(Client::class);
 
         Cache::shouldReceive('has')
@@ -164,13 +208,13 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
      */
     public function getImages_allFilesInCache_thenSuccess()
     {
-      $images = collect([
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-      ]);
+        $images = collect([
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        ]);
 
         $client = $this->createMock(Client::class);
         $client->expects($this->never())->method('request');
@@ -179,7 +223,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
             ->times(5)
             ->andReturnValues($images->toArray());
 
-      /** @var Client $client */
+        /** @var Client $client */
         $adapter = new ImageServiceAdapter($client, $this->containerName);
 
         $this->assertEquals($images->toArray(), $adapter->getHostingUrls($images->keys()->toArray()));
@@ -190,13 +234,13 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
      */
     public function getImages_noFilesInCache_thenSuccess()
     {
-      $images = collect([
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-      ]);
+        $images = collect([
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        ]);
 
         $responses = $images
             ->map(function ($url, $id) {
@@ -220,14 +264,54 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
     /**
      * @test
      */
+    public function getImagesWithParams_noFilesInCache_thenSuccess()
+    {
+        $images = collect([
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        ]);
+
+        $responses = $images
+            ->map(function ($url, $id) {
+                return new Response(StatusCode::OK, [], json_encode((object)['url' => $url]));
+            })
+            ->toArray();
+
+        $mock = new MockHandler($responses);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
+
+        Cache::shouldReceive('get')
+            ->times(5)
+            ->andReturnNull();
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+
+        $imageArray = $images
+            ->map(function () {
+                return [
+                    'params' => ImageParamsObject::create(['maxWidth' => 200])
+                ];
+            })
+            ->toArray();
+
+        $this->assertEquals($images->toArray(), $adapter->getHostingUrls($imageArray));
+    }
+
+    /**
+     * @test
+     */
     public function getImages_threeFilesInCache_thenSuccess()
     {
-      $images = collect([
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-        $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
-      ]);
+        $images = collect([
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        ]);
 
 
         $responses = $images
@@ -257,6 +341,43 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $this->assertEquals($allImages->toArray(), $adapter->getHostingUrls($allImages->keys()->toArray()));
     }
 
+    /**
+     * @test
+     */
+    public function getImages_noFilesInCacheOneFailure_thenSuccess()
+    {
+        $images = collect([
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+            $this->faker->unique()->uuid => null,
+            $this->faker->unique()->uuid => $this->faker->unique()->imageUrl(),
+        ]);
+
+        $responses = $images
+            ->map(function ($url, $id) {
+                if (!is_null($url)) {
+                    return new Response(StatusCode::OK, [], json_encode((object)['url' => $url]));
+                } else {
+                    return new Response(StatusCode::INTERNAL_SERVER_ERROR, [], json_encode((object)['url' => $url]));
+                }
+            })
+            ->toArray();
+
+        $mock = new MockHandler($responses);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
+
+        Cache::shouldReceive('get')
+            ->times(5)
+            ->andReturnNull();
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+
+        $this->assertEquals($images->toArray(), $adapter->getHostingUrls($images->keys()->toArray()));
+        $this->assertNotEmpty($adapter->getErrors());
+        $this->assertCount(1, $adapter->getErrors());
+    }
 
     /**
      * @test

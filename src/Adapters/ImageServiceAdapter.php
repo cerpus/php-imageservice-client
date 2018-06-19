@@ -5,13 +5,16 @@ namespace Cerpus\ImageServiceClient\Adapters;
 use Carbon\Carbon;
 use Cerpus\ImageServiceClient\Contracts\ImageServiceContract;
 use Cerpus\ImageServiceClient\DataObjects\ImageDataObject;
+use Cerpus\ImageServiceClient\DataObjects\ImageParamsObject;
 use Cerpus\ImageServiceClient\Exceptions\FileNotFoundException;
+use Cerpus\ImageServiceClient\Exceptions\ImageUrlNotFoundException;
 use Cerpus\ImageServiceClient\Exceptions\InvalidFileException;
 use Cerpus\ImageServiceClient\Exceptions\UploadNotFinishedException;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Pool;
 use Illuminate\Support\Facades\Cache;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Class ImageServiceAdapter
@@ -30,6 +33,10 @@ class ImageServiceAdapter implements ImageServiceContract
     const HOSTING_URL = "/v1/images/%s/%s/hosting_url";
 
     const CACHE_KEY = 'ImageServiceObject-';
+
+    const CACHE_EXPIRE = 60 * 23;
+
+    private $errors = [];
 
     /**
      * QuestionBankAdapter constructor.
@@ -62,6 +69,9 @@ class ImageServiceAdapter implements ImageServiceContract
         return $uploadedImage;
     }
 
+    /**
+     * @return ImageDataObject
+     */
     private function createImageObject()
     {
         $imageObjectResponse = $this->client->post(sprintf(self::CREATE_IMAGE, $this->containerName), [
@@ -72,6 +82,11 @@ class ImageServiceAdapter implements ImageServiceContract
         return $imageObject;
     }
 
+    /**
+     * @param $filePath
+     * @param $imageObjectId
+     * @return ImageDataObject
+     */
     private function uploadImage($filePath, $imageObjectId)
     {
         $checksum = sha1_file($filePath);
@@ -82,11 +97,19 @@ class ImageServiceAdapter implements ImageServiceContract
         return ImageDataObject::create(\GuzzleHttp\json_decode($imageUploadContent, true));
     }
 
+    /**
+     * @param ImageDataObject $imageDataObject
+     * @return bool
+     */
     private function isFinished(ImageDataObject $imageDataObject): bool
     {
         return $imageDataObject->state === 'finished';
     }
 
+    /**
+     * @param $filePath
+     * @return bool
+     */
     private function isFileInPath($filePath)
     {
         $realPath = realpath($filePath);
@@ -99,44 +122,82 @@ class ImageServiceAdapter implements ImageServiceContract
         return false;
     }
 
-    public function getHostingUrl($imageId)
+    /**
+     * @param $imageId
+     * @param ImageParamsObject|null $imageParams
+     * @return string|null
+     * @throws ImageUrlNotFoundException
+     */
+    public function getHostingUrl($imageId, ImageParamsObject $imageParams = null)
     {
         if (empty($imageId)) {
             return null;
         }
 
-        $cacheKey = self::CACHE_KEY . $imageId;
+        $cacheKey = $this->getCacheKey($imageId, $imageParams);
         if (Cache::has($cacheKey) !== true) {
             try {
-                $imageResponse = $this->client->get(sprintf(self::HOSTING_URL, $this->containerName, $imageId));
+                $imageResponse = $this->client->get(sprintf(self::HOSTING_URL, $this->containerName, $imageId), [
+                    'query' => is_null($imageParams) ? [] : $imageParams->toArray()
+                ]);
                 $imageResponseContent = $imageResponse->getBody()->getContents();
                 $responseJson = \GuzzleHttp\json_decode($imageResponseContent);
                 $this->addToCache($responseJson->url, $cacheKey);
                 return $responseJson->url;
-            } catch (ServerException $exception) {
-                return null;
+            } catch (RequestException $exception) {
+                $this->errors[$imageId] = $exception;
+                throw new ImageUrlNotFoundException($exception->getMessage(), $exception->getCode(), $exception);
             }
         }
         return Cache::get($cacheKey, null);
     }
 
+    /**
+     * @param $imageId
+     * @param ImageParamsObject|null $paramsObject
+     * @return string
+     */
+    private function getCacheKey($imageId, ImageParamsObject $paramsObject = null)
+    {
+        return is_null($paramsObject) ? self::CACHE_KEY . $imageId : self::CACHE_KEY . $imageId . '|' . implode('|', $paramsObject->toArray());
+    }
+
+    /**
+     * @param $url
+     * @param $cacheKey
+     */
     private function addToCache($url, $cacheKey)
     {
-        $expire = Carbon::now()->addHour();
+        $expire = Carbon::now()->addMinutes(self::CACHE_EXPIRE);
         Cache::put($url, $cacheKey, $expire);
     }
 
+
+    /**
+     * @param array $imageIds
+     * @return array
+     */
     public function getHostingUrls(array $imageIds)
     {
         $imageObjects = collect($imageIds)
-            ->flip()
-            ->transform(function () {
-                return null;
+            ->flatMap(function ($value, $index) {
+                if (is_array($value)) {
+                    return [$index => [
+                        'url' => null,
+                        'params' => $value['params']
+                    ]];
+                } else {
+                    return [$value => [
+                        'url' => null,
+                        'params' => null
+                    ]];
+                }
             });
 
         $cached = $imageObjects
-            ->map(function ($url, $imageId) {
-                return Cache::get(self::CACHE_KEY . $imageId);
+            ->map(function ($value, $imageId) {
+                $cacheKey = $this->getCacheKey($imageId, $value['params']);
+                return Cache::get($cacheKey);
             })
             ->filter(function ($imageUrl) {
                 return !empty($imageUrl);
@@ -151,11 +212,16 @@ class ImageServiceAdapter implements ImageServiceContract
             foreach ($images as $imageId => $image) {
                 yield function () use ($imageId, &$images) {
                     return $this->client
-                        ->getAsync(sprintf(self::HOSTING_URL, $this->containerName, $imageId))
-                        ->then(function ($response) use ($imageId, &$images) {
+                        ->getAsync(sprintf(self::HOSTING_URL, $this->containerName, $imageId), [
+                            'query' => is_null($images[$imageId]['params']) ? [] : $images[$imageId]['params']->toArray()
+                        ])
+                        ->then(function (ResponseInterface $response) use ($imageId, &$images) {
                             $responseContent = \GuzzleHttp\json_decode($response->getBody()->getContents());
+                            $this->addToCache($responseContent->url, $this->getCacheKey($imageId, $images[$imageId]['params']));
                             $images[$imageId] = $responseContent->url;
-                            $this->addToCache($responseContent->url, self::CACHE_KEY . $imageId);
+                        }, function ($exception) use ($imageId, &$images) {
+                            $images[$imageId] = null;
+                            $this->errors[$imageId] = $exception;
                         });
                 };
             }
@@ -182,7 +248,7 @@ class ImageServiceAdapter implements ImageServiceContract
             $imageResponse = $this->client->get(sprintf(self::GET_IMAGE, $this->containerName, $id));
             $imageResponseContent = $imageResponse->getBody()->getContents();
             return ImageDataObject::create(\GuzzleHttp\json_decode($imageResponseContent, true));
-        } catch (ServerException $exception) {
+        } catch (RequestException $exception) {
             throw new FileNotFoundException($exception->getMessage());
         }
     }
@@ -198,8 +264,16 @@ class ImageServiceAdapter implements ImageServiceContract
         try {
             $imageResponse = $this->client->delete(sprintf(self::GET_IMAGE, $this->containerName, $id));
             return $imageResponse->getStatusCode() === 200;
-        } catch (ServerException $exception) {
+        } catch (RequestException $exception) {
             throw new FileNotFoundException($exception->getMessage());
         }
+    }
+
+    /**
+     * @return array
+     */
+    public function getErrors()
+    {
+        return $this->errors;
     }
 }
