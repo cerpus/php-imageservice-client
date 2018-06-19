@@ -99,7 +99,7 @@ Method calls return an object or throws exceptions on failure.
 
 **delete($id)** - Delete a file from the image service.
 
-**getHostingUrl($id)** - Returns an url where the file can be found.
+**getHostingUrl($id, ImageParamsObject $params)** - Returns an url where the file can be found.
 
 **getHostingUrls(array $ids)** - Returns an array of urls to images
 
