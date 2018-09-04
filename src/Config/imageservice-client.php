@@ -15,6 +15,7 @@ return [
             "auth-secret" => "",
             "auth-token" => "",
             "auth-token_secret" => "",
+            "system-name" => "",
         ],
 
     ],

@@ -69,7 +69,7 @@ class ImageServiceClientServiceProvider extends ServiceProvider
             $this->checkConfig($ImageServiceClientConfig, $adapter);
 
             $adapterConfig = $ImageServiceClientConfig["adapters"][$adapter];
-            return new $adapterConfig['handler']($client, config("app.key"));
+            return new $adapterConfig['handler']($client, $adapterConfig['system-name']);
         });
 
         $this->mergeConfigFrom(ImageServiceClient::getConfigPath(), ImageServiceClient::$alias);

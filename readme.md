@@ -56,6 +56,7 @@ return [
         "imageservice" => [
             "handler" => \Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter::class,
             "base-url" => '<url to service>',
+            "system-name" => '<system name>',
         ],
     ],
 ];
@@ -70,6 +71,7 @@ return [
         "imageservice" => [
             "handler" => \Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter::class,
 	    "base-url" => env('IMAGESERVICE_URL'),
+	    "system-name" => env('VERSION_SYSTEM_NAME')
         ],
     ],
 ];
