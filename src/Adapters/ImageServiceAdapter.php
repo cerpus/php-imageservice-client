@@ -27,10 +27,11 @@ class ImageServiceAdapter implements ImageServiceContract
 
     private $containerName;
 
-    const GET_IMAGE = "/v1/images/%s/%s";
-    const CREATE_IMAGE = "/v1/images/%s/create";
-    const UPLOAD_IMAGE = "/v1/images/%s/%s/upload";
-    const HOSTING_URL = "/v1/images/%s/%s/hosting_url";
+    const GET_IMAGES = "/v2/containers/%s/images";
+    const GET_IMAGE = "/v2/images/%s";
+    const CREATE_IMAGE = "/v2/containers/%s/images";
+    const UPLOAD_IMAGE = "/v2/images/%s/upload";
+    const HOSTING_URL = "/v2/images/%s/hosting_url";
 
     const CACHE_KEY = 'ImageServiceObject-';
 
@@ -46,6 +47,14 @@ class ImageServiceAdapter implements ImageServiceContract
     public function __construct(Client $client, $containerName)
     {
         $this->client = $client;
+        $this->containerName = $containerName;
+    }
+
+    /**
+     * @param string $containerName
+     */
+    public function setContainerName(string $containerName)
+    {
         $this->containerName = $containerName;
     }
 
@@ -90,8 +99,11 @@ class ImageServiceAdapter implements ImageServiceContract
     private function uploadImage($filePath, $imageObjectId)
     {
         $checksum = sha1_file($filePath);
-        $imageUploadResponse = $this->client->post(sprintf(self::UPLOAD_IMAGE . "?checksum=%s", $this->containerName, $imageObjectId, $checksum), [
-            'body' => fopen($filePath, 'r')
+        $imageUploadResponse = $this->client->post(sprintf(self::UPLOAD_IMAGE, $imageObjectId), [
+            'body' => fopen($filePath, 'r'),
+            'query' => [
+                'checksum' => $checksum
+            ]
         ]);
         $imageUploadContent = $imageUploadResponse->getBody()->getContents();
         return ImageDataObject::create(\GuzzleHttp\json_decode($imageUploadContent, true));
@@ -137,7 +149,7 @@ class ImageServiceAdapter implements ImageServiceContract
         $cacheKey = $this->getCacheKey($imageId, $imageParams);
         if (Cache::has($cacheKey) !== true) {
             try {
-                $imageResponse = $this->client->get(sprintf(self::HOSTING_URL, $this->containerName, $imageId), [
+                $imageResponse = $this->client->get(sprintf(self::HOSTING_URL, $imageId), [
                     'query' => is_null($imageParams) ? [] : $imageParams->toArray()
                 ]);
                 $imageResponseContent = $imageResponse->getBody()->getContents();
@@ -212,7 +224,7 @@ class ImageServiceAdapter implements ImageServiceContract
             foreach ($images as $imageId => $image) {
                 yield function () use ($imageId, &$images) {
                     return $this->client
-                        ->getAsync(sprintf(self::HOSTING_URL, $this->containerName, $imageId), [
+                        ->getAsync(sprintf(self::HOSTING_URL, $imageId), [
                             'query' => is_null($images[$imageId]['params']) ? [] : $images[$imageId]['params']->toArray()
                         ])
                         ->then(function (ResponseInterface $response) use ($imageId, &$images) {
