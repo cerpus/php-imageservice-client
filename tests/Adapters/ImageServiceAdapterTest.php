@@ -13,6 +13,8 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Promise\FulfilledPromise;
+use GuzzleHttp\Promise\Promise;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Cache;
@@ -40,6 +42,47 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         array_walk($this->testFiles, function ($file) {
             unlink($file);
         });
+    }
+
+    /**
+     * @test
+     */
+    public function storeImage_validateClient()
+    {
+        $imageObjectId = $this->faker->uuid;
+        $imagePayload = (object)[
+            'id' => $imageObjectId,
+            'state' => 'draft',
+            'size' => 0,
+        ];
+        $storedImage = ImageDataObject::create($imageObjectId, 'finished', 1000);
+
+        $testFile = $this->faker->image('/tmp', 320, 340);
+        $this->testFiles[] = $testFile;
+
+        $client = $this->getMockBuilder(Client::class)
+            ->setMethods(['post'])
+            ->getMock();
+
+        $client
+            ->expects(self::at(0))
+            ->method('post')
+            ->with(sprintf(ImageServiceAdapter::CREATE_IMAGE, $this->containerName), $this->anything())
+            ->willReturn(
+                new Response(StatusCode::OK, [], json_encode($imagePayload))
+            );
+
+        $client
+            ->expects(self::at(1))
+            ->method('post')
+            ->with(sprintf(ImageServiceAdapter::UPLOAD_IMAGE, $imageObjectId), $this->anything())
+            ->willReturn(
+                new Response(StatusCode::OK, [], $storedImage->toJson())
+            );
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $returnedImage = $adapter->store($testFile);
+        $this->assertEquals($storedImage, $returnedImage);
     }
 
     /**
@@ -146,6 +189,38 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
     /**
      * @test
      */
+    public function checkClientParameters_fileFound_thenSuccess()
+    {
+        $imageId = $this->faker->uuid;
+        $imageUrl = $this->faker->imageUrl();
+
+        $client = $this->getMockBuilder(Client::class)
+            ->setMethods(['get'])
+            ->getMock();
+
+        $client
+            ->expects(self::once())
+            ->method('get')
+            ->with(sprintf(ImageServiceAdapter::HOSTING_URL, $imageId), $this->anything())
+            ->willReturn(
+                new Response(StatusCode::OK, [], json_encode((object)['url' => $imageUrl]))
+            );
+
+        Cache::shouldReceive('has')
+            ->once()
+            ->andReturnFalse();
+
+        Cache::shouldReceive('put')
+            ->once()
+            ->andReturnNull();
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $this->assertEquals($imageUrl, $adapter->getHostingUrl($imageId));
+    }
+
+    /**
+     * @test
+     */
     public function getImage_fileFoundInCache_thenSuccess()
     {
         $imageUrl = $this->faker->imageUrl();
@@ -227,6 +302,41 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $adapter = new ImageServiceAdapter($client, $this->containerName);
 
         $this->assertEquals($images->toArray(), $adapter->getHostingUrls($images->keys()->toArray()));
+    }
+
+    /**
+     * @test
+     */
+    public function checkClientParameters_noFilesInCache_thenSuccess()
+    {
+        $imageId = $this->faker->uuid;
+        $imageUrl = $this->faker->imageUrl();
+
+        $images = collect([
+            $imageId => $imageUrl,
+        ]);
+
+        $client = $this->getMockBuilder(Client::class)
+            ->setMethods(['getAsync'])
+            ->getMock();
+
+        $client
+            ->expects(self::once())
+            ->method('getAsync')
+            ->with(sprintf(ImageServiceAdapter::HOSTING_URL, $imageId), $this->anything())
+            ->willReturn(
+                new FulfilledPromise(new Response(StatusCode::OK, [], json_encode((object)['url' => $imageUrl])))
+            );
+
+        Cache::shouldReceive('get')
+            ->once()
+            ->andReturnNull();
+
+        /** @var Client $client */
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+
+        $t = $adapter->getHostingUrls($images->keys()->toArray());
+        $this->assertEquals($images->toArray(), $t);
     }
 
     /**
