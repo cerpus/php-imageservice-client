@@ -181,7 +181,7 @@ class ImageServiceAdapter implements ImageServiceContract
     private function addToCache($url, $cacheKey)
     {
         $expire = Carbon::now()->addMinutes(self::CACHE_EXPIRE);
-        Cache::put($url, $cacheKey, $expire);
+        Cache::put($cacheKey, $url, $expire);
     }
 
 
