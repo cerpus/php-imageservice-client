@@ -1,0 +1,38 @@
+---
+version: 2
+plan:
+  project-key: BCP
+  key: ISC
+  name: ImageserviceClient
+stages:
+  - Build:
+    - Create package and run tests
+
+Create package and run tests:
+  tasks:
+    - script: |
+        rm -rf code &&
+        mkdir -p code &&
+        (mv * .* code/ || true) &&
+
+        cd code &&
+        rm -rf .git &&
+        tar czvf ../imageserviceclient.tar.gz ./ &&
+        php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" &&
+        php composer-setup.php &&
+        php -r "unlink('composer-setup.php');" &&
+        php composer.phar install &&
+
+        vendor/bin/phpunit -c phpunit.xml --log-junit test-report.xml
+  artifacts:
+    - name: imageserviceclient.tar.gz
+      location: ./
+      pattern: imageserviceclient.tar.gz
+      required: true
+      shared: true
+  final-tasks:
+    - test-parser:
+        type: junit
+        test-results: code/test-report.xml
+  requirements:
+    - platform: ubuntu1604
