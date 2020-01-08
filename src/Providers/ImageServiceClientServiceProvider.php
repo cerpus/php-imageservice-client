@@ -3,14 +3,14 @@
 namespace Cerpus\ImageServiceClient\Providers;
 
 
-use Cerpus\ImageServiceClient\Clients\Client;
-use Cerpus\ImageServiceClient\Clients\Oauth1Client;
-use Cerpus\ImageServiceClient\Clients\Oauth2Client;
+use Cerpus\Helper\Clients\Client;
+use Cerpus\Helper\Clients\Oauth1Client;
+use Cerpus\Helper\Clients\Oauth2Client;
+use Cerpus\Helper\DataObjects\OauthSetup;
 use Cerpus\ImageServiceClient\Contracts\ImageServiceClientContract;
 use Cerpus\ImageServiceClient\Contracts\ImageServiceContract;
 use Cerpus\ImageServiceClient\Exceptions\InvalidConfigException;
 use Cerpus\ImageServiceClient\ImageServiceClient;
-use Cerpus\ImageServiceClient\DataObjects\OauthSetup;
 use Illuminate\Support\ServiceProvider;
 
 class ImageServiceClientServiceProvider extends ServiceProvider
@@ -52,12 +52,12 @@ class ImageServiceClientServiceProvider extends ServiceProvider
             }
 
             return $clientClass::getClient(OauthSetup::create([
-                'baseUrl' => $adapterConfig['base-url'],
+                'coreUrl' => $adapterConfig['base-url'],
                 'authUrl' => $adapterConfig['auth-url'],
-                'authUser' => $adapterConfig['auth-user'],
-                'authSecret' => $adapterConfig['auth-secret'],
-                'authToken' => $adapterConfig['auth-token'],
-                'authTokenSecret' => $adapterConfig['auth-token_secret'],
+                'key' => $adapterConfig['auth-user'],
+                'secret' => $adapterConfig['auth-secret'],
+                'token' => $adapterConfig['auth-token'],
+                'tokenSecret' => $adapterConfig['auth-token_secret'],
             ]));
         });
 

@@ -3,7 +3,8 @@
 namespace Cerpus\ImageServiceClient\DataObjects;
 
 
-use Cerpus\ImageServiceClient\Traits\CreateTrait;
+
+use Cerpus\Helper\Traits\CreateTrait;
 
 /**
  * Class ImageParamsObject
