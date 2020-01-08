@@ -35,4 +35,4 @@ Create package and run tests:
         type: junit
         test-results: code/test-report.xml
   requirements:
-    - platform: ubuntu1604
+    - platform: ubuntu1804
