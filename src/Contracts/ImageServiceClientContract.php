@@ -2,18 +2,12 @@
 
 namespace Cerpus\ImageServiceClient\Contracts;
 
-use Cerpus\ImageServiceClient\DataObjects\OauthSetup;
-use GuzzleHttp\ClientInterface;
+use Cerpus\Helper\Contracts\HelperClientContract;
 
 /**
  * Interface ImageServiceClientContract
  * @package Cerpus\CoreClient\Contracts
  */
-interface ImageServiceClientContract
+interface ImageServiceClientContract extends HelperClientContract
 {
-    /**
-     * @param OauthSetup $config
-     * @return ClientInterface
-     */
-    public static function getClient(OauthSetup $config): ClientInterface;
 }
