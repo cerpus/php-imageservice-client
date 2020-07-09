@@ -161,7 +161,7 @@ class ImageServiceAdapter implements ImageServiceContract
                 throw new ImageUrlNotFoundException($exception->getMessage(), $exception->getCode(), $exception);
             }
         }
-        return Cache::get($cacheKey, null);
+        return Cache::get($cacheKey);
     }
 
     /**
@@ -257,7 +257,7 @@ class ImageServiceAdapter implements ImageServiceContract
     public function get($id): ImageDataObject
     {
         try {
-            $imageResponse = $this->client->get(sprintf(self::GET_IMAGE, $this->containerName, $id));
+            $imageResponse = $this->client->get(sprintf(self::GET_IMAGE, $id));
             $imageResponseContent = $imageResponse->getBody()->getContents();
             return ImageDataObject::create(\GuzzleHttp\json_decode($imageResponseContent, true));
         } catch (RequestException $exception) {
@@ -265,6 +265,23 @@ class ImageServiceAdapter implements ImageServiceContract
         }
     }
 
+    /**
+     * @param $id
+     * @param  string $toFile
+     * @throws FileNotFoundException|ImageUrlNotFoundException
+     */
+    public function loadRaw($id, $toFile)
+    {
+        try {
+            $url = $this->getHostingUrl($id);
+            if (!$url) {
+                throw new FileNotFoundException();
+            }
+            $this->client->get($url, ['sink' => $toFile]);
+        } catch (RequestException $exception) {
+            throw new FileNotFoundException($exception->getMessage());
+        }
+    }
 
     /**
      * @param $id
@@ -274,7 +291,7 @@ class ImageServiceAdapter implements ImageServiceContract
     public function delete($id): bool
     {
         try {
-            $imageResponse = $this->client->delete(sprintf(self::GET_IMAGE, $this->containerName, $id));
+            $imageResponse = $this->client->delete(sprintf(self::GET_IMAGE, $id));
             return $imageResponse->getStatusCode() === 200;
         } catch (RequestException $exception) {
             throw new FileNotFoundException($exception->getMessage());

@@ -105,6 +105,10 @@ Method calls return an object or throws exceptions on failure.
 
 **getHostingUrls(array $ids)** - Returns an array of urls to images
 
+**loadRaw($id, $toFile)** - Downloads the image to the specified location
+
+**getErrors()** - Returns an array of occurred errors
+
  ## More info
  See the [Confluence Image storage service API documentation](https://confluence.cerpus.com/pages/viewpage.action?pageId=38535277)
 
