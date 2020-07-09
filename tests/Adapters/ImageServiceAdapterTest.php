@@ -5,16 +5,17 @@ namespace Cerpus\ImageServiceClientTests\Adapters;
 use Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter;
 use Cerpus\ImageServiceClient\DataObjects\ImageDataObject;
 use Cerpus\ImageServiceClient\DataObjects\ImageParamsObject;
+use Cerpus\ImageServiceClient\Exceptions\FileNotFoundException;
 use Cerpus\ImageServiceClient\Exceptions\ImageUrlNotFoundException;
+use Cerpus\ImageServiceClient\Exceptions\InvalidFileException;
+use Cerpus\ImageServiceClient\Exceptions\UploadNotFinishedException;
 use Cerpus\ImageServiceClientTests\Utils\ImageServiceTestCase;
 use Cerpus\ImageServiceClientTests\Utils\Traits\WithFaker;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
-use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Promise\FulfilledPromise;
-use GuzzleHttp\Promise\Promise;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Cache;
@@ -40,7 +41,9 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         parent::tearDown();
 
         array_walk($this->testFiles, function ($file) {
-            unlink($file);
+            if( file_exists($file)){
+                unlink($file);
+            }
         });
     }
 
@@ -121,10 +124,11 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
     /**
      * @test
-     * @expectedException Cerpus\ImageServiceClient\Exceptions\InvalidFileException
+     *
      */
     public function storeImage_fileNotInPath_thenFail()
     {
+        $this->expectException(InvalidFileException::class);
         $client = $this->createMock(Client::class);
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
@@ -133,10 +137,11 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
     /**
      * @test
-     * @expectedException Cerpus\ImageServiceClient\Exceptions\UploadNotFinishedException
+     *
      */
     public function storeImage_fileNoFinished_thenFail()
     {
+        $this->expectException(UploadNotFinishedException::class);
         $imageObjectId = $this->faker->uuid;
         $imagePayload = (object)[
             'id' => $imageObjectId,
@@ -244,10 +249,11 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
     /**
      * @test
-     * @expectedException Cerpus\ImageServiceClient\Exceptions\ImageUrlNotFoundException
+     *
      */
     public function getImage_errorOnServer_thenFail()
     {
+        $this->expectException(ImageUrlNotFoundException::class);
         $mock = new MockHandler([
             new RequestException("Could not find url", new Request("GET", 'test')),
         ]);
@@ -511,10 +517,11 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
     /**
      * @test
-     * @expectedException Cerpus\ImageServiceClient\Exceptions\FileNotFoundException
+     *
      */
     public function getImage_invalidFile_thenFail()
     {
+        $this->expectException(FileNotFoundException::class);
         $imageId = $this->faker->uuid;
         $response = (object)[
             'status' => StatusCode::INTERNAL_SERVER_ERROR,
@@ -549,10 +556,11 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
     /**
      * @test
-     * @expectedException Cerpus\ImageServiceClient\Exceptions\FileNotFoundException
+     *
      */
     public function deleteImage_invalidImage_thenFail()
     {
+        $this->expectException(FileNotFoundException::class);
         $mock = new MockHandler([
             new Response(StatusCode::INTERNAL_SERVER_ERROR),
         ]);
@@ -563,4 +571,52 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $adapter->delete($this->faker->uuid);
     }
 
+    /**
+     * @test
+     *
+     */
+    public function loadRawImage_validPath_thenSuccess()
+    {
+        $destinationFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "imageTest_" . $this->faker->uuid;
+        $this->testFiles[] = $destinationFile;
+        $imageUrl = $this->faker->imageUrl();
+
+        $mock = new MockHandler([
+            new Response(StatusCode::OK, [], json_encode((object)['url' => $imageUrl])),
+            new Response(StatusCode::OK, [], file_get_contents($this->testDirectory . DIRECTORY_SEPARATOR . "Data" . DIRECTORY_SEPARATOR . "efecabde710777a9a361bd064b07a36e.jpg")),
+        ]);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
+
+        $this->assertFileNotExists($destinationFile);
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $adapter->loadRaw($this->faker->randomNumber(4), $destinationFile);
+
+        $this->assertFileExists($destinationFile);
+    }
+
+    /**
+     * @test
+     *
+     */
+    public function loadRawImage_imageNotFound_thenFail()
+    {
+        $this->expectException(ImageUrlNotFoundException::class);
+
+        $destinationFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "imageTest_" . $this->faker->uuid;
+        $this->testFiles[] = $destinationFile;
+        $imageUrl = $this->faker->imageUrl();
+
+        $mock = new MockHandler([
+            new Response(StatusCode::NOT_FOUND),
+        ]);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
+
+        $this->assertFileNotExists($destinationFile);
+
+        $adapter = new ImageServiceAdapter($client, $this->containerName);
+        $adapter->loadRaw($this->faker->randomNumber(4), $destinationFile);
+    }
 }

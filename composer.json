@@ -10,7 +10,8 @@
     "phpunit/phpunit": "^6.4",
     "fzaninotto/faker": "^1.7",
     "mockery/mockery": "^1.0",
-    "shrikeh/teapot": "^2.3"
+    "shrikeh/teapot": "^2.3",
+    "ext-json": "^1.6"
   },
   "authors": [
     {
