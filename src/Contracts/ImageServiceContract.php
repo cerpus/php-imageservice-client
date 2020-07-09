@@ -21,4 +21,6 @@ interface ImageServiceContract
     public function getHostingUrls(array $images);
 
     public function getErrors();
+
+    public function loadRaw($id, $toFile);
 }
