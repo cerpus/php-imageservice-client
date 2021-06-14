@@ -7,6 +7,8 @@ use Cerpus\Helper\Clients\Client;
 use Cerpus\Helper\Clients\Oauth1Client;
 use Cerpus\Helper\Clients\Oauth2Client;
 use Cerpus\Helper\DataObjects\OauthSetup;
+use Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter;
+use Cerpus\ImageServiceClient\Adapters\LocalImageServiceAdapter;
 use Cerpus\ImageServiceClient\Contracts\ImageServiceClientContract;
 use Cerpus\ImageServiceClient\Contracts\ImageServiceContract;
 use Cerpus\ImageServiceClient\Exceptions\InvalidConfigException;
@@ -62,14 +64,24 @@ class ImageServiceClientServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(ImageServiceContract::class, function ($app) {
-            $client = $app->make(ImageServiceClientContract::class);
             $ImageServiceClientConfig = $app['config']->get(ImageServiceClient::$alias);
             $adapter = $ImageServiceClientConfig['default'];
-
             $this->checkConfig($ImageServiceClientConfig, $adapter);
-
             $adapterConfig = $ImageServiceClientConfig["adapters"][$adapter];
-            return new $adapterConfig['handler']($client, $adapterConfig['system-name']);
+
+            $theAdapter = null;
+            switch($adapterConfig['handler']){
+                case ImageServiceAdapter::class:
+                    $client = $app->make(ImageServiceClientContract::class);
+                    $theAdapter =  new $adapterConfig['handler']($client, $adapterConfig['system-name']);
+                    break;
+
+                case LocalImageServiceAdapter::class:
+                    $theAdapter = new $adapterConfig['handler']($adapterConfig['disk-name']);
+                    break;
+            }
+
+            return $theAdapter;
         });
 
         $this->mergeConfigFrom(ImageServiceClient::getConfigPath(), ImageServiceClient::$alias);
@@ -99,6 +111,7 @@ class ImageServiceClientServiceProvider extends ServiceProvider
             "auth-secret" => "",
             "auth-token" => "",
             "auth-token_secret" => "",
+            "disk-name" => "public",
         ];
     }
 

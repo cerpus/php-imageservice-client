@@ -29,19 +29,19 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
     private $testFiles = [];
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
 
         $this->testFiles = [];
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         parent::tearDown();
 
         array_walk($this->testFiles, function ($file) {
-            if( file_exists($file)){
+            if (file_exists($file)) {
                 unlink($file);
             }
         });
@@ -53,35 +53,25 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
     public function storeImage_validateClient()
     {
         $imageObjectId = $this->faker->uuid;
-        $imagePayload = (object)[
-            'id' => $imageObjectId,
+        $imagePayload = (object) [
+            'id'    => $imageObjectId,
             'state' => 'draft',
-            'size' => 0,
+            'size'  => 0,
         ];
         $storedImage = ImageDataObject::create($imageObjectId, 'finished', 1000);
 
         $testFile = $this->faker->image('/tmp', 320, 340);
         $this->testFiles[] = $testFile;
 
-        $client = $this->getMockBuilder(Client::class)
-            ->setMethods(['post'])
-            ->getMock();
-
-        $client
-            ->expects(self::at(0))
-            ->method('post')
-            ->with(sprintf(ImageServiceAdapter::CREATE_IMAGE, $this->containerName), $this->anything())
-            ->willReturn(
-                new Response(StatusCode::OK, [], json_encode($imagePayload))
-            );
-
-        $client
-            ->expects(self::at(1))
-            ->method('post')
-            ->with(sprintf(ImageServiceAdapter::UPLOAD_IMAGE, $imageObjectId), $this->anything())
-            ->willReturn(
-                new Response(StatusCode::OK, [], $storedImage->toJson())
-            );
+        $responses = [
+            new Response(StatusCode::OK, [], json_encode($imagePayload)),
+            new Response(StatusCode::OK, [], $storedImage->toJson()),
+            new Response(StatusCode::OK, [], json_encode($imagePayload)),
+            new Response(StatusCode::OK, [], $storedImage->toJson()),
+        ];
+        $mock = new MockHandler($responses);
+        $handler = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handler]);
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $returnedImage = $adapter->store($testFile);
@@ -94,10 +84,10 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
     public function storeImage_existingFile_thenSuccess()
     {
         $imageObjectId = $this->faker->uuid;
-        $imagePayload = (object)[
-            'id' => $imageObjectId,
+        $imagePayload = (object) [
+            'id'    => $imageObjectId,
             'state' => 'draft',
-            'size' => 0,
+            'size'  => 0,
         ];
         $storedImage = ImageDataObject::create($imageObjectId, 'finished', 1000);
 
@@ -105,7 +95,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
             new Response(StatusCode::OK, [], json_encode($imagePayload)),
             new Response(StatusCode::OK, [], $storedImage->toJson()),
             new Response(StatusCode::OK, [], json_encode($imagePayload)),
-            new Response(StatusCode::OK, [], $storedImage->toJson())
+            new Response(StatusCode::OK, [], $storedImage->toJson()),
         ];
         $mock = new MockHandler($responses);
         $handler = HandlerStack::create($mock);
@@ -118,7 +108,8 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $returnedImage = $adapter->store($testFile);
         $this->assertEquals($storedImage, $returnedImage);
 
-        $returnedImage = $adapter->store($this->testDirectory . DIRECTORY_SEPARATOR . "Data" . DIRECTORY_SEPARATOR . "efecabde710777a9a361bd064b07a36e.jpg");
+        $returnedImage = $adapter->store($this->testDirectory.DIRECTORY_SEPARATOR."Data".DIRECTORY_SEPARATOR
+            ."efecabde710777a9a361bd064b07a36e.jpg");
         $this->assertEquals($storedImage, $returnedImage);
     }
 
@@ -132,7 +123,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $client = $this->createMock(Client::class);
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
-        $adapter->store("/random/directory/" . $this->faker->uuid);
+        $adapter->store("/random/directory/".$this->faker->uuid);
     }
 
     /**
@@ -143,16 +134,16 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
     {
         $this->expectException(UploadNotFinishedException::class);
         $imageObjectId = $this->faker->uuid;
-        $imagePayload = (object)[
-            'id' => $imageObjectId,
+        $imagePayload = (object) [
+            'id'    => $imageObjectId,
             'state' => 'draft',
-            'size' => 0,
+            'size'  => 0,
         ];
         $storedImage = ImageDataObject::create($imageObjectId, 'notfinished', 1000);
 
         $responses = [
             new Response(StatusCode::OK, [], json_encode($imagePayload)),
-            new Response(StatusCode::OK, [], $storedImage->toJson())
+            new Response(StatusCode::OK, [], $storedImage->toJson()),
         ];
         $mock = new MockHandler($responses);
         $handler = HandlerStack::create($mock);
@@ -174,7 +165,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $imageUrl = $this->faker->imageUrl();
 
         $mock = new MockHandler([
-            new Response(StatusCode::OK, [], json_encode((object)['url' => $imageUrl])),
+            new Response(StatusCode::OK, [], json_encode((object) ['url' => $imageUrl])),
         ]);
         $handler = HandlerStack::create($mock);
         $client = new Client(['handler' => $handler]);
@@ -208,7 +199,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
             ->method('get')
             ->with(sprintf(ImageServiceAdapter::HOSTING_URL, $imageId), $this->anything())
             ->willReturn(
-                new Response(StatusCode::OK, [], json_encode((object)['url' => $imageUrl]))
+                new Response(StatusCode::OK, [], json_encode((object) ['url' => $imageUrl]))
             );
 
         Cache::shouldReceive('has')
@@ -331,7 +322,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
             ->method('getAsync')
             ->with(sprintf(ImageServiceAdapter::HOSTING_URL, $imageId), $this->anything())
             ->willReturn(
-                new FulfilledPromise(new Response(StatusCode::OK, [], json_encode((object)['url' => $imageUrl])))
+                new FulfilledPromise(new Response(StatusCode::OK, [], json_encode((object) ['url' => $imageUrl])))
             );
 
         Cache::shouldReceive('get')
@@ -360,7 +351,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
         $responses = $images
             ->map(function ($url, $id) {
-                return new Response(StatusCode::OK, [], json_encode((object)['url' => $url]));
+                return new Response(StatusCode::OK, [], json_encode((object) ['url' => $url]));
             })
             ->toArray();
 
@@ -392,7 +383,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
         $responses = $images
             ->map(function ($url, $id) {
-                return new Response(StatusCode::OK, [], json_encode((object)['url' => $url]));
+                return new Response(StatusCode::OK, [], json_encode((object) ['url' => $url]));
             })
             ->toArray();
 
@@ -409,7 +400,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $imageArray = $images
             ->map(function () {
                 return [
-                    'params' => ImageParamsObject::create(['maxWidth' => 200])
+                    'params' => ImageParamsObject::create(['maxWidth' => 200]),
                 ];
             })
             ->toArray();
@@ -432,7 +423,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
         $responses = $images
             ->map(function ($url, $id) {
-                return new Response(StatusCode::OK, [], json_encode((object)['url' => $url]));
+                return new Response(StatusCode::OK, [], json_encode((object) ['url' => $url]));
             })
             ->toArray();
         $mock = new MockHandler($responses);
@@ -445,9 +436,10 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         Cache::shouldReceive('get')
             ->withAnyArgs()
             ->andReturnUsing(function ($key) use ($cachedId, $cachedUrl) {
-                if ($key === ImageServiceAdapter::CACHE_KEY . $cachedId) {
+                if ($key === ImageServiceAdapter::CACHE_KEY.$cachedId) {
                     return $cachedUrl;
                 }
+
                 return null;
             });
 
@@ -473,9 +465,9 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $responses = $images
             ->map(function ($url, $id) {
                 if (!is_null($url)) {
-                    return new Response(StatusCode::OK, [], json_encode((object)['url' => $url]));
+                    return new Response(StatusCode::OK, [], json_encode((object) ['url' => $url]));
                 } else {
-                    return new Response(StatusCode::INTERNAL_SERVER_ERROR, [], json_encode((object)['url' => $url]));
+                    return new Response(StatusCode::INTERNAL_SERVER_ERROR, [], json_encode((object) ['url' => $url]));
                 }
             })
             ->toArray();
@@ -512,7 +504,6 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $imageResponseObject = $adapter->get($imageId);
         $this->assertEquals($imageObject, $imageResponseObject);
-        $this->assertAttributeEquals($imageId, 'id', $imageResponseObject);
     }
 
     /**
@@ -523,10 +514,10 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
     {
         $this->expectException(FileNotFoundException::class);
         $imageId = $this->faker->uuid;
-        $response = (object)[
+        $response = (object) [
             'status' => StatusCode::INTERNAL_SERVER_ERROR,
-            'error' => 'Internal Server Error',
-            'path' => sprintf(ImageServiceAdapter::GET_IMAGE, $this->containerName, $imageId),
+            'error'  => 'Internal Server Error',
+            'path'   => sprintf(ImageServiceAdapter::GET_IMAGE, $this->containerName, $imageId),
         ];
 
         $mock = new MockHandler([
@@ -577,13 +568,15 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
      */
     public function loadRawImage_validPath_thenSuccess()
     {
-        $destinationFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "imageTest_" . $this->faker->uuid;
+        $destinationFile = sys_get_temp_dir().DIRECTORY_SEPARATOR."imageTest_".$this->faker->uuid;
         $this->testFiles[] = $destinationFile;
         $imageUrl = $this->faker->imageUrl();
 
         $mock = new MockHandler([
-            new Response(StatusCode::OK, [], json_encode((object)['url' => $imageUrl])),
-            new Response(StatusCode::OK, [], file_get_contents($this->testDirectory . DIRECTORY_SEPARATOR . "Data" . DIRECTORY_SEPARATOR . "efecabde710777a9a361bd064b07a36e.jpg")),
+            new Response(StatusCode::OK, [], json_encode((object) ['url' => $imageUrl])),
+            new Response(StatusCode::OK, [],
+                file_get_contents($this->testDirectory.DIRECTORY_SEPARATOR."Data".DIRECTORY_SEPARATOR
+                    ."efecabde710777a9a361bd064b07a36e.jpg")),
         ]);
         $handler = HandlerStack::create($mock);
         $client = new Client(['handler' => $handler]);
@@ -604,7 +597,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
     {
         $this->expectException(ImageUrlNotFoundException::class);
 
-        $destinationFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "imageTest_" . $this->faker->uuid;
+        $destinationFile = sys_get_temp_dir().DIRECTORY_SEPARATOR."imageTest_".$this->faker->uuid;
         $this->testFiles[] = $destinationFile;
         $imageUrl = $this->faker->imageUrl();
 

@@ -18,6 +18,7 @@ Create package and run tests:
         cd code &&
         rm -rf .git &&
         tar czvf ../imageserviceclient.tar.gz ./ &&
+        php -v &&
         php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" &&
         php composer-setup.php &&
         php -r "unlink('composer-setup.php');" &&

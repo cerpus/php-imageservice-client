@@ -9,7 +9,7 @@ class ImageServiceTestCase extends TestCase
 {
     public $testDirectory;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->testDirectory = dirname(__FILE__, 2);
 
