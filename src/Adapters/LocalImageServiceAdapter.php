@@ -123,6 +123,17 @@ class LocalImageServiceAdapter implements ImageServiceContract
             throw new FileNotFoundException();
         }
 
-        file_put_contents($toFile, $this->getDisk()->get("image-service/{$id}"));
+        try {
+            $content = $this->getDisk()->get('image-service/' . $id);
+            if (!file_exists(dirname($toFile))) {
+                mkdir(dirname($toFile), 0777, true);
+            }
+            touch($toFile);
+            if (file_put_contents($toFile, $content, LOCK_EX)) {
+                return true;
+            }
+        } catch (\Throwable $t) {
+            return false;
+        }
     }
 }
