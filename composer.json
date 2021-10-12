@@ -33,15 +33,5 @@
     "psr-4": {
       "Cerpus\\ImageServiceClientTests\\": "tests"
     }
-  },
-  "repositories": [
-    {
-      "type": "composer",
-      "url": "https://composer.cerpus.net/"
-    },
-    {
-      "type": "composer",
-      "url": "https://composer-3rdparty.cerpus.net/"
-    }
-  ]
+  }
 }
