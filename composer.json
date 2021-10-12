@@ -1,6 +1,7 @@
 {
   "name": "cerpus/imageservice-client",
   "description": "Client to handle communication with the Cerpus ImageService",
+  "license": "GPL-3.0-only",
   "require": {
     "illuminate/support": "^6.0|^7.0|^8.0",
     "nesbot/carbon": "^2.0",

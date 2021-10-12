@@ -93,7 +93,7 @@ $cerpusImage = new Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter(Client
 The last one is _not_ recommended.
 
 ## Class methods
-Method calls return an object or throws exceptions on failure. 
+Method calls return an object or throws exceptions on failure.
 
 **get($id)** - Returns an ImageDataObject with info on a particular ID
 
@@ -113,3 +113,7 @@ Method calls return an object or throws exceptions on failure.
  See the [Confluence Image storage service API documentation](https://confluence.cerpus.com/pages/viewpage.action?pageId=38535277)
 
 
+## License
+
+This package is released under the GNU General Public License 3.0. See the
+`LICENSE` file for more information.
