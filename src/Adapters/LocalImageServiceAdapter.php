@@ -19,6 +19,7 @@ class LocalImageServiceAdapter implements ImageServiceContract
     private $errors = [];
     private $disk = null;
     private $diskName = null;
+    private $directoryPrefix = 'image-service';
 
     public function __construct(?string $diskName = null)
     {
@@ -48,55 +49,57 @@ class LocalImageServiceAdapter implements ImageServiceContract
         return $this->disk;
     }
 
-    public function store($imageFilePath): ImageDataObject
+    public function store($imageFilePath, array $metadata = []): ImageDataObject
     {
-        $id = $this->getDisk()->putFileAs('image-service', new File($imageFilePath), Str::uuid()->toString());
+        $filename = basename($imageFilePath);
+
+        $id = $this->getDisk()->putFileAs($this->directoryPrefix, new File($imageFilePath), $filename, $metadata);
         $this->getDisk()->setVisibility($id, "public");
 
         $publicId = basename($id);
 
         $imageData = $this->getImageDataObject();
         $imageData->id = $publicId;
-        $imageData->size = $this->getDisk()->size($id);
+        $imageData->size = filesize($imageFilePath);
 
         return $imageData;
     }
 
     public function getHostingUrl($imageId, ImageParamsObject $imageParams = null)
     {
-        if (!$this->getDisk()->exists("image-service/{$imageId}")) {
+        if (!$this->getDisk()->exists("{$this->directoryPrefix}/{$imageId}")) {
             throw new ImageUrlNotFoundException;
         }
 
-        $url = $this->getDisk()->url("image-service/{$imageId}");
+        $url = $this->getDisk()->url("{$this->directoryPrefix}/{$imageId}");
 
         return $url;
     }
 
     public function get($id): ImageDataObject
     {
-        if (!$this->getDisk()->exists("image-service/{$id}")) {
+        if (!$this->getDisk()->exists("{$this->directoryPrefix}/{$id}")) {
             throw new FileNotFoundException();
         }
 
         $imageData = $this->getImageDataObject();
         $imageData->id = $id;
-        $imageData->size = $this->getDisk()->size("image-service/$id");
+        $imageData->size = $this->getDisk()->size("{$this->directoryPrefix}/$id");
 
         return $imageData;
     }
 
     public function delete($id): bool
     {
-        if (!$this->getDisk()->exists("image-service/$id")) {
+        if (!$this->getDisk()->exists("{$this->directoryPrefix}/$id")) {
             throw new FileNotFoundException();
         }
 
-        if ($this->getDisk()->getVisibility("image-service/{$id}") === "private") {
+        if ($this->getDisk()->getVisibility("{$this->directoryPrefix}/{$id}") === "private") {
             return false;
         }
 
-        $this->getDisk()->delete("image-service/$id");
+        $this->getDisk()->delete("{$this->directoryPrefix}/$id");
 
         return true;
     }
@@ -119,12 +122,12 @@ class LocalImageServiceAdapter implements ImageServiceContract
 
     public function loadRaw($id, $toFile)
     {
-        if (!$this->getDisk()->exists("image-service/$id")) {
+        if (!$this->getDisk()->exists("{$this->directoryPrefix}/$id")) {
             throw new FileNotFoundException();
         }
 
         try {
-            $content = $this->getDisk()->get('image-service/' . $id);
+            $content = $this->getDisk()->get("{$this->directoryPrefix}/" . $id);
             if (!file_exists(dirname($toFile))) {
                 mkdir(dirname($toFile), 0777, true);
             }

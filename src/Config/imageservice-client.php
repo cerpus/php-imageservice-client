@@ -2,10 +2,9 @@
 
 return [
     //default adapter for questionsets
-        "default" => "imageservice",
+    "default" => "imageservice",
 
     "adapters" => [
-
         "imageservice" => [
             "handler" => env("IMAGE_SERVICE_HANDLER", \Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter::class),
             "base-url" => "",
