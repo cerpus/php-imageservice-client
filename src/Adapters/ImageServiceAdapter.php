@@ -64,7 +64,7 @@ class ImageServiceAdapter implements ImageServiceContract
      * @throws InvalidFileException
      * @throws UploadNotFinishedException
      */
-    public function store($imageFilePath): ImageDataObject
+    public function store($imageFilePath, array $metadata = []): ImageDataObject
     {
         if ($this->isFileInPath($imageFilePath) !== true) {
             throw new InvalidFileException();

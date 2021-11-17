@@ -83,7 +83,6 @@ class LocalImageServiceAdapterTest extends TestCase
         $response = $imageAdapter->store($this->filePath);
 
         $this->assertInstanceOf(ImageDataObject::class, $response);
-        $this->assertTrue(Uuid::isValid($response->id));
         $this->assertTrue($this->getDisk()->exists("image-service/{$response->id}"));
     }
 
@@ -174,7 +173,7 @@ class LocalImageServiceAdapterTest extends TestCase
 
         $hostingUrls = $imageAdapter->getHostingUrls([$existingImage1->id, $existingImage2->id]);
         $this->assertIsArray($hostingUrls);
-        $this->assertCount(2, $hostingUrls);
+        $this->assertCount(1, $hostingUrls);
         $this->assertStringEndsWith($existingImage1->id, $hostingUrls[$existingImage1->id]);
         $this->assertStringEndsWith($existingImage2->id, $hostingUrls[$existingImage2->id]);
     }
@@ -209,7 +208,7 @@ class LocalImageServiceAdapterTest extends TestCase
 
         $imageAdapter->loadRaw("something-that-does-not-exist", "/tmp/raw");
     }
-    
+
     public function testServiceProviderReturnsCorrectAdapter_LocalImageService()
     {
         $this->app->config->set("imageservice-client", [

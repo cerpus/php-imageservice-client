@@ -97,7 +97,7 @@ Method calls return an object or throws exceptions on failure.
 
 **get($id)** - Returns an ImageDataObject with info on a particular ID
 
-**store($filePath)** - Creates and uploads a new image in one operation.
+**store($filePath, array $metadata = [])** - Creates and uploads a new image in one operation.
 
 **delete($id)** - Delete a file from the image service.
 

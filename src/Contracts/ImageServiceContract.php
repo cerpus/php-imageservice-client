@@ -10,7 +10,7 @@ use Cerpus\ImageServiceClient\DataObjects\ImageParamsObject;
  */
 interface ImageServiceContract
 {
-    public function store($imageFilePath): ImageDataObject;
+    public function store($imageFilePath, array $metadata = []): ImageDataObject;
 
     public function getHostingUrl($imageId, ImageParamsObject $imageParams = null);
 
