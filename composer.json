@@ -4,7 +4,7 @@
   "license": "GPL-3.0-only",
   "require": {
     "php": "^7.4 || ^8.0",
-    "illuminate/support": "^6.0|^7.0|^8.0",
+    "illuminate/support": "^6.0||^7.0||^8.0",
     "nesbot/carbon": "^2.0",
     "cerpus/cerpushelper": "^2.0",
     "ext-json": "*"
