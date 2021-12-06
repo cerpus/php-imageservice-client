@@ -581,7 +581,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $handler = HandlerStack::create($mock);
         $client = new Client(['handler' => $handler]);
 
-        $this->assertFileNotExists($destinationFile);
+        $this->assertFileDoesNotExist($destinationFile);
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $adapter->loadRaw($this->faker->randomNumber(4), $destinationFile);
@@ -607,7 +607,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $handler = HandlerStack::create($mock);
         $client = new Client(['handler' => $handler]);
 
-        $this->assertFileNotExists($destinationFile);
+        $this->assertFileDoesNotExist($destinationFile);
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $adapter->loadRaw($this->faker->randomNumber(4), $destinationFile);
