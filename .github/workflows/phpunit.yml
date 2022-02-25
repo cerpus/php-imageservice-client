@@ -11,11 +11,20 @@ jobs:
             fail-fast: false
             matrix:
                 include:
+                    -   php-version: '7.4'
+                        laravel-constraint: '^8.0'
+
                     -   php-version: '8.0'
                         laravel-constraint: '^8.0'
 
+                    -   php-version: '8.0'
+                        laravel-constraint: '^9.0'
+
                     -   php-version: '8.1'
                         laravel-constraint: '^8.0'
+
+                    -   php-version: '8.1'
+                        laravel-constraint: '^9.0'
 
         steps:
             -   name: Checkout
