@@ -1,0 +1,55 @@
+name: Run PHPUnit
+
+on: [push, pull_request]
+
+jobs:
+    phpunit:
+        name: PHPUnit (PHP ${{ matrix.php-version }}, Laravel ${{ matrix.laravel-constraint }})
+        runs-on: ubuntu-20.04
+
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    -   php-version: '8.0'
+                        laravel-constraint: '^8.0'
+
+                    -   php-version: '8.1'
+                        laravel-constraint: '^8.0'
+
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v2
+
+            -   name: Set up PHP
+                uses: shivammathur/setup-php@v2
+                with:
+                    php-version: ${{ matrix.php-version }}
+                    coverage: pcov
+
+            -   name: Get Composer cache dir
+                id: composer-cache
+                run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+
+            -   name: Cache dependencies
+                uses: actions/cache@v2
+                with:
+                    path: ${{ steps.composer-cache.outputs.dir }}
+                    key: ${{ runner.os }}-php-${{ matrix.php-version }}-laravel-${{ matrix.laravel-constraint }}-composer-${{ hashFiles('**/composer.json') }}
+                    restore-keys: ${{ runner.os }}-php-${{ matrix.php-version }}-laravel-${{ matrix.laravel-constraint }}-composer-
+
+            -   name: Install dependencies
+                run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+            -   name: Apply version constraints
+                run: composer update --with illuminate/support:${{ matrix.laravel-constraint }}
+
+            -   name: Run PHPUnit
+                run: vendor/bin/phpunit --coverage-clover=clover.xml
+
+            -   name: Publish coverage
+                uses: slavcodev/coverage-monitor-action@v1
+                with:
+                    github_token: ${{ secrets.GITHUB_TOKEN }}
+                    coverage_path: clover.xml
+
