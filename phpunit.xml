@@ -10,6 +10,13 @@
          stopOnFailure="false"
          cacheResult="false"
          >
+
+    <coverage>
+        <include>
+            <directory suffix=".php">src/</directory>
+        </include>
+    </coverage>
+
     <testsuites>
         <testsuite name="ImageServiceClient Test Suite">
             <directory>./tests</directory>
