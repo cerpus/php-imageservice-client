@@ -4,7 +4,7 @@
   "license": "GPL-3.0-only",
   "require": {
     "php": "^7.4 || ^8.0",
-    "illuminate/support": "^6.0||^7.0||^8.0",
+    "illuminate/support": "^8.0||^9.0",
     "nesbot/carbon": "^2.0",
     "cerpus/cerpushelper": "^2.0",
     "ext-json": "*"
@@ -31,7 +31,7 @@
   },
   "require-dev": {
     "shrikeh/teapot": "^2.3",
-    "orchestra/testbench": "^6.23",
+    "orchestra/testbench": "^6.23|^7.0",
     "phpunit/phpunit": "^9.5",
     "fakerphp/faker": "^1.17"
   }
