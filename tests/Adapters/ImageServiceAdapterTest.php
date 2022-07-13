@@ -27,26 +27,6 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
     private $containerName = "ImageServiceClientTestContainer";
 
-    private $testFiles = [];
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->testFiles = [];
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-
-        array_walk($this->testFiles, function ($file) {
-            if (file_exists($file)) {
-                unlink($file);
-            }
-        });
-    }
-
     /**
      * @test
      */
@@ -60,8 +40,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         ];
         $storedImage = ImageDataObject::create($imageObjectId, 'finished', 1000);
 
-        $testFile = $this->faker->image('/tmp', 320, 340);
-        $this->testFiles[] = $testFile;
+        $testFile = realpath(__DIR__."/../Data/efecabde710777a9a361bd064b07a36e.jpg");
 
         $responses = [
             new Response(StatusCode::OK, [], json_encode($imagePayload)),
@@ -101,8 +80,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $handler = HandlerStack::create($mock);
         $client = new Client(['handler' => $handler]);
 
-        $testFile = $this->faker->image('/tmp', 320, 340);
-        $this->testFiles[] = $testFile;
+        $testFile = realpath(__DIR__."/../Data/efecabde710777a9a361bd064b07a36e.jpg");
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $returnedImage = $adapter->store($testFile);
@@ -149,8 +127,7 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
         $handler = HandlerStack::create($mock);
         $client = new Client(['handler' => $handler]);
 
-        $testFile = $this->faker->image('/tmp', 320, 340);
-        $this->testFiles[] = $testFile;
+        $testFile = realpath(__DIR__."/../Data/efecabde710777a9a361bd064b07a36e.jpg");
 
         $adapter = new ImageServiceAdapter($client, $this->containerName);
         $returnedImage = $adapter->store($testFile);
