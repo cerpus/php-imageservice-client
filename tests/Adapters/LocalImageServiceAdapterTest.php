@@ -173,7 +173,7 @@ class LocalImageServiceAdapterTest extends TestCase
 
         $hostingUrls = $imageAdapter->getHostingUrls([$existingImage1->id, $existingImage2->id]);
         $this->assertIsArray($hostingUrls);
-        $this->assertCount(1, $hostingUrls);
+        $this->assertCount(2, $hostingUrls);
         $this->assertStringEndsWith($existingImage1->id, $hostingUrls[$existingImage1->id]);
         $this->assertStringEndsWith($existingImage2->id, $hostingUrls[$existingImage2->id]);
     }

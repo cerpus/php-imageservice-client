@@ -51,9 +51,7 @@ class LocalImageServiceAdapter implements ImageServiceContract
 
     public function store($imageFilePath, array $metadata = []): ImageDataObject
     {
-        $filename = basename($imageFilePath);
-
-        $id = $this->getDisk()->putFileAs($this->directoryPrefix, new File($imageFilePath), $filename, $metadata);
+        $id = $this->getDisk()->putFileAs($this->directoryPrefix, new File($imageFilePath), Str::uuid()->toString(), $metadata);
         $this->getDisk()->setVisibility($id, "public");
 
         $publicId = basename($id);
@@ -67,6 +65,9 @@ class LocalImageServiceAdapter implements ImageServiceContract
 
     public function getHostingUrl($imageId, ImageParamsObject $imageParams = null)
     {
+        if (empty($imageId)) {
+            return null;
+        }
         if (!$this->getDisk()->exists("{$this->directoryPrefix}/{$imageId}")) {
             throw new ImageUrlNotFoundException;
         }
