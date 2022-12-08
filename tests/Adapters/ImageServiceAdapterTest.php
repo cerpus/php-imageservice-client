@@ -27,6 +27,8 @@ class ImageServiceAdapterTest extends ImageServiceTestCase
 
     private $containerName = "ImageServiceClientTestContainer";
 
+    private array $testFiles;
+
     /**
      * @test
      */
