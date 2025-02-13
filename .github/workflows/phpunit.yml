@@ -1,11 +1,20 @@
 name: Run PHPUnit
 
-on: [push, pull_request]
+on:
+    push:
+        branches:
+            - master
+        tags:
+            - 'v*'
+    pull_request:
+        branches:
+            - master
+    workflow_dispatch:
 
 jobs:
     phpunit:
         name: PHPUnit (PHP ${{ matrix.php-version }}, Laravel ${{ matrix.laravel-constraint }})
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-24.04
 
         strategy:
             fail-fast: false
@@ -28,7 +37,7 @@ jobs:
 
         steps:
             -   name: Checkout
-                uses: actions/checkout@v2
+                uses: actions/checkout@v4
 
             -   name: Set up PHP
                 uses: shivammathur/setup-php@v2
@@ -38,10 +47,10 @@ jobs:
 
             -   name: Get Composer cache dir
                 id: composer-cache
-                run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+                run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
             -   name: Cache dependencies
-                uses: actions/cache@v2
+                uses: actions/cache@v4
                 with:
                     path: ${{ steps.composer-cache.outputs.dir }}
                     key: ${{ runner.os }}-php-${{ matrix.php-version }}-laravel-${{ matrix.laravel-constraint }}-composer-${{ hashFiles('**/composer.json') }}
